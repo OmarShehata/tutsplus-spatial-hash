@@ -15,7 +15,7 @@
 
 <center>
 	<h2>Rendering - One Big Display List (<span id="fps">-</span> fps)</h2>
-	<i><span id="objects"></span> objects total, <span id="onscreen"></span> on screen.</i></br>
+	<i><span id="loading">Creating... </span><span id="objects"></span> objects total, <span id="onscreen"></span> on screen.</i></br>
 	<canvas></canvas>
 </center>
 <script type="text/javascript">
@@ -162,24 +162,6 @@
 	}
 
 	
-	//Create a lot of objects
-	var N = 1000000;
-	var spacing = 100;
-
-	for(var i=0;i<Math.sqrt(N);i++){
-		for(var j=0;j<Math.sqrt(N);j++){
-			var smiling = Math.random() > 0.5 ? true : false; 
-			var X = i * spacing + Math.random() * 100;
-			var Y = j * spacing + Math.random() * 100; 
-
-			var obj = MakeCircle(X,Y,smiling)
-			gameObjects.push(obj)
-		}
-	}
-	camTarget = gameObjects[0]
-	document.querySelector("#objects").innerHTML = numberWithCommas(gameObjects.length);
-
-	
 
 	function gameloop(){
 		CalculatFps()
@@ -207,7 +189,43 @@
 
 		requestAnimationFrame(gameloop)
 	}
-	requestAnimationFrame(gameloop);
+	
+	//Create our objects in chunks so the browser does not freeze
+	var N = 1000000;
+	var spacing = 100;
+	var startIndex = 0;
+	var step = 40;
+	var endIndex = step;
+
+	function createObjects(){
+		var done = false;
+		for(var i=startIndex;i<endIndex;i++){
+			for(var j=0;j<Math.sqrt(N);j++){
+				var smiling = Math.random() > 0.5 ? true : false; 
+				var X = i * spacing + Math.random() * 100;
+				var Y = j * spacing + Math.random() * 100; 
+
+				var obj = MakeCircle(X,Y,smiling)
+				gameObjects.push(obj)
+			}
+			if(i == Math.sqrt(N) -1) done = true;
+		}
+		//Advance 
+		startIndex = endIndex;
+		endIndex += step;
+		if(endIndex > Math.sqrt(N)) endIndex = Math.sqrt(N)
+		document.querySelector("#objects").innerHTML = numberWithCommas(gameObjects.length);
+
+		if(!done){
+			requestAnimationFrame(createObjects)
+		}else {
+			camTarget = gameObjects[0]
+			document.querySelector("#objects").innerHTML = numberWithCommas(gameObjects.length);
+			document.querySelector("#loading").style = "display:none;"
+			requestAnimationFrame(gameloop)
+		}
+	}
+	requestAnimationFrame(createObjects)
 
 </script>
 </body>
