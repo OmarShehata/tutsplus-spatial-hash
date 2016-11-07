@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Traditional Render</title>
+	<style type="text/css">
+		canvas {
+			border:dotted;
+		}
+		body {
+			font-family: Lato;
+		}
+	</style>
+</head>
+<body>
+
+<center>
+	<h2>Rendering - One Big Display List (<span id="fps">-</span> fps)</h2>
+	<i><span id="objects"></span> objects total, <span id="onscreen"></span> on screen.</i></br>
+	<canvas></canvas>
+</center>
+<script type="text/javascript">
+	var canvas = document.querySelector("canvas")
+	var context = canvas.getContext('2d');
+	canvas.width = 600;
+	canvas.height = 400;
+	var mouse = {x:0,y:0}
+	var camX = 0;
+	var camY = 0;
+	var gameObjects = []
+	var camTarget;
+
+
+	canvas.onmousemove = function(e){
+		mouse = getMousePos(canvas,e)
+	}
+
+	function numberWithCommas(x) {
+		//Source: http://stackoverflow.com/a/2901298/1278023
+	    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+	}
+
+	function getMousePos(canvas, evt) {
+		//Source: http://stackoverflow.com/a/17130415/1278023
+	    var rect = canvas.getBoundingClientRect();
+	    return {
+	      x: evt.clientX - rect.left,
+	      y: evt.clientY - rect.top
+	    };
+	}
+
+
+	function MakeCircle(x,y,smiling){
+		var circle = {}
+		circle.x = x;
+		circle.y = y;
+		circle.radius = 30;
+		circle.blinkCount = 0;
+		circle.blinkMax = Math.random() * 300 + 60;
+		circle.offsetX = 0;
+		circle.offsetY = 0;
+		circle.update = function(){
+			this.blinkCount ++;
+			if(this.blinkCount > this.blinkMax+10){
+				this.blinkCount = 0;
+			}
+			//Look towards mouse 
+			var dx = mouse.x - this.x -camX; 
+			var dy = mouse.y - this.y -camY; 
+			//Clamp the distance
+			dx /= 100; if(dx > 9) dx = 9; if(dx < -9) dx = -9;
+			dy /= 100; if(dy > 9) dy = 9; if(dy < -9) dy = -9;
+			this.offsetX = dx;
+			this.offsetY = dy;
+		}
+		circle.draw = function(){
+			context.beginPath();
+			context.arc(this.x, this.y, this.radius, 0, 2 * Math.PI, false);
+			context.fillStyle = '#c11571';
+			context.fill();
+			context.lineWidth = 4;
+			context.strokeStyle = '#890d4f';
+			context.stroke();
+			//Draw eyes 
+			if(this.blinkCount < this.blinkMax){
+				context.beginPath();
+				context.arc(this.x-this.radius/2 + this.offsetX, this.y-5 + this.offsetY, 3, 0, 2 * Math.PI, false);
+				context.fillStyle = '#890d4f';
+				context.fill();
+
+				context.beginPath();
+				context.arc(this.x+this.radius/2 + this.offsetX, this.y-5+this.offsetY, 3, 0, 2 * Math.PI, false);
+				context.fillStyle = '#890d4f';
+				context.fill();
+			} else {
+				//Draw blink 
+				context.beginPath();
+				context.lineWidth = 1;
+				context.moveTo(this.x-this.radius/2-2+ this.offsetX, this.y-5+ this.offsetY);
+				context.lineTo(this.x-this.radius/2+2+ this.offsetX, this.y-5+ this.offsetY);
+				context.stroke();
+
+				context.beginPath();
+				context.lineWidth = 1;
+				context.moveTo(this.x+this.radius/2-2+ this.offsetX, this.y-5+ this.offsetY);
+				context.lineTo(this.x+this.radius/2+2+ this.offsetX, this.y-5+ this.offsetY);
+				context.stroke();
+			}
+			if(!smiling){
+				//Draw mouth
+				context.beginPath();
+				context.lineWidth = 2;
+				context.moveTo(this.x-this.radius/2+ this.offsetX, this.y+7+ this.offsetY);
+				context.lineTo(this.x+this.radius/2+ this.offsetX, this.y+7+ this.offsetY);
+				context.stroke();
+			} else {
+				//Smile
+				context.beginPath();
+				context.lineWidth = 2;
+				context.arc(this.x+ this.offsetX, this.y+ this.offsetY, 10, 0, Math.PI, false);
+				context.stroke();
+			}
+		}
+		return circle;
+	}
+
+	
+
+	function CameraUpdate(){
+		context.translate( camX, camY );    
+		//Move cam to a random target 
+		var targetX = -camTarget.x + canvas.width/2;
+		var targetY = -camTarget.y + canvas.height/2;
+		var dx = targetX - camX;
+		var dy = targetY - camY;
+		var dist = Math.sqrt(dx * dx + dy * dy);
+		dx /= dist; 
+		dy /= dist;
+		if(dist < 10){
+			camTarget = gameObjects[Math.floor(Math.random() * gameObjects.length)]
+		}
+		camX += dx * 3;
+		camY += dy * 3;
+	}
+
+	var lastCalledTime = Date.now();
+	var averageFPS = 0;
+	var fpsCount = 0;
+
+	function CalculatFps(){
+		//Calculate fps
+		fpsCount ++;
+		var delta = (Date.now() - lastCalledTime)/1000;
+		lastCalledTime = Date.now();
+		averageFPS += 1/delta;
+		
+		if(fpsCount > 60){
+			averageFPS /= fpsCount
+			document.querySelector("#fps").innerHTML = averageFPS.toFixed()
+			averageFPS = 0;
+			fpsCount = 0;
+		}
+	}
+
+	
+	//Create a lot of objects
+	var N = 1000000;
+	var spacing = 100;
+
+	for(var i=0;i<Math.sqrt(N);i++){
+		for(var j=0;j<Math.sqrt(N);j++){
+			var smiling = Math.random() > 0.5 ? true : false; 
+			var X = i * spacing + Math.random() * 100;
+			var Y = j * spacing + Math.random() * 100; 
+
+			var obj = MakeCircle(X,Y,smiling)
+			gameObjects.push(obj)
+		}
+	}
+	camTarget = gameObjects[0]
+	document.querySelector("#objects").innerHTML = numberWithCommas(gameObjects.length);
+
+	
+
+	function gameloop(){
+		CalculatFps()
+
+		context.setTransform(1,0,0,1,0,0);//reset the transform matrix
+		//Clear the canvas 
+		context.clearRect(0,0,canvas.width,canvas.height);
+
+		CameraUpdate()
+		var onScreenCount = 0;
+		//Loop over and update/draw only those on screen 
+		for(var i=0;i<gameObjects.length;i++){
+			var obj = gameObjects[i];
+			//Check if it's in the screen
+			if(obj.x > -camX - obj.radius && obj.x < -camX + canvas.width + obj.radius 
+				&& obj.y > -camY - obj.radius && obj.y < -camY + canvas.height + obj.radius){
+				obj.update();
+				obj.draw();
+				onScreenCount ++;
+			} 
+			
+		}
+		document.querySelector('#onscreen').innerHTML = onScreenCount
+		
+
+		requestAnimationFrame(gameloop)
+	}
+	requestAnimationFrame(gameloop);
+
+</script>
+</body>
+</html>
